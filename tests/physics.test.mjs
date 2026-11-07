@@ -112,11 +112,15 @@ function obstacleGap(o, p) {
 }
 
 test('every obstacle layout leaves gaps a ball fits through comfortably', () => {
-  for (const balls of OPTIONS.balls.values) for (const obstacles of OPTIONS.obstacles.values) for (const plate of OPTIONS.plate.values) for (const cupSize of OPTIONS.cupSize.values) for (const hole of OPTIONS.hole.values) {
-    const W = buildWorld({ balls, hole, cupSize, rolling: 'tuned', plate, obstacles }, () => 0.3);
+  for (const balls of OPTIONS.balls.values) for (const obstacles of OPTIONS.obstacles.values) for (const plate of OPTIONS.plate.values) for (const cupSize of OPTIONS.cupSize.values) for (const hole of OPTIONS.hole.values) for (const ballSize of OPTIONS.ballSize.values) {
+    const W = buildWorld({ balls, ballSize, hole, cupSize, rolling: 'tuned', plate, obstacles }, () => 0.3);
     for (let i = 0; i < W.obstacles.length; i++) for (let j = i + 1; j < W.obstacles.length; j++) {
       const g = obstacleGap(W.obstacles[i], W.obstacles[j]);
-      assert.ok(g >= 1.4 * 2 * W.R, `${balls} balls, ${obstacles}, ${plate}, ${hole}, ${cupSize} cups: ${W.obstacles[i].kind}-${W.obstacles[j].kind} gap ${(g * 1000).toFixed(1)}mm`);
+      assert.ok(g >= 1.4 * 2 * W.R, `${balls} balls, ${obstacles}, ${plate}, ${hole}, ${cupSize} cups, ${ballSize} balls: ${W.obstacles[i].kind}-${W.obstacles[j].kind} gap ${(g * 1000).toFixed(1)}mm`);
+    }
+    for (const o of W.obstacles) {
+      const out = Math.max(Math.hypot(o.x1, o.y1), Math.hypot(o.x2, o.y2)) + o.r;
+      assert.ok(W.plateR - out >= 1.4 * 2 * W.R, `${balls} balls, ${obstacles}, ${plate}, ${hole}, ${ballSize} balls: ${o.kind} too near the plate edge`);
     }
   }
 });
@@ -146,9 +150,9 @@ test('the old best-time keys still work for large cups and pockets', () => {
 });
 
 test('holes never crowd each other or an obstacle', () => {
-  for (const balls of OPTIONS.balls.values) for (const obstacles of OPTIONS.obstacles.values) for (const cupSize of OPTIONS.cupSize.values) for (const hole of OPTIONS.hole.values) {
-    const W = buildWorld({ balls, hole, cupSize, rolling: 'tuned', plate: 'normal', obstacles }, () => 0.3);
-    const where = `${balls} balls, ${hole}, ${cupSize}, ${obstacles}`;
+  for (const balls of OPTIONS.balls.values) for (const obstacles of OPTIONS.obstacles.values) for (const cupSize of OPTIONS.cupSize.values) for (const hole of OPTIONS.hole.values) for (const ballSize of OPTIONS.ballSize.values) {
+    const W = buildWorld({ balls, ballSize, hole, cupSize, rolling: 'tuned', plate: 'normal', obstacles }, () => 0.3);
+    const where = `${balls} balls, ${ballSize}, ${hole}, ${cupSize}, ${obstacles}`;
     for (let i = 0; i < W.holes.length; i++) for (let j = i + 1; j < W.holes.length; j++) {
       const a = W.holes[i], b = W.holes[j];
       assert.ok(Math.hypot(a.x - b.x, a.y - b.y) - a.a - b.a >= 2 * W.R, `${where}: holes closer than a ball width`);
@@ -162,6 +166,14 @@ test('holes never crowd each other or an obstacle', () => {
 test('five holes sit close to the centre', () => {
   const W = buildWorld({ ...PRESETS.medium }, () => 0.3);
   for (const h of W.holes) assert.ok(Math.abs(Math.hypot(h.x, h.y) - 0.045) < 1e-9);
+});
+
+test('ball size scales the ball and its holes together', () => {
+  const sizes = OPTIONS.ballSize.values.map((ballSize) => buildWorld({ ...PRESETS.medium, ballSize }, () => 0.3));
+  const [small, medium, large] = sizes;
+  assert.ok(small.R < medium.R && medium.R < large.R);
+  for (const W of sizes) assert.ok(Math.abs(W.holes[0].a / W.R - 1.6) < 1e-9, 'large cups stay 1.6 ball radii');
+  assert.equal(medium.R, 0.01);
 });
 
 test('every preset builds a world whose balls start on the plate and clear of obstacles', () => {

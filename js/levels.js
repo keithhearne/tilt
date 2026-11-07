@@ -7,6 +7,7 @@ const deg = (x) => (x * Math.PI) / 180;
 
 export const OPTIONS = {
   balls: { label: 'Balls', values: [1, 3, 5, 7] },
+  ballSize: { label: 'Ball size', values: ['small', 'medium', 'large'], names: { small: 'Small', medium: 'Medium', large: 'Large' } },
   hole: {
     label: 'Holes',
     values: ['pocket', 'deep', 'shallow'],
@@ -23,10 +24,10 @@ export const OPTIONS = {
 };
 
 export const PRESETS = {
-  easy: { balls: 3, hole: 'pocket', cupSize: 'large', rolling: 'tuned', plate: 'normal', obstacles: 'none' },
-  medium: { balls: 5, hole: 'deep', cupSize: 'large', rolling: 'tuned', plate: 'normal', obstacles: 'none' },
-  hard: { balls: 5, hole: 'shallow', cupSize: 'large', rolling: 'tuned', plate: 'normal', obstacles: 'posts' },
-  expert: { balls: 7, hole: 'shallow', cupSize: 'large', rolling: 'real', plate: 'normal', obstacles: 'posts' },
+  easy: { balls: 3, ballSize: 'medium', hole: 'pocket', cupSize: 'large', rolling: 'tuned', plate: 'normal', obstacles: 'none' },
+  medium: { balls: 5, ballSize: 'medium', hole: 'deep', cupSize: 'large', rolling: 'tuned', plate: 'normal', obstacles: 'none' },
+  hard: { balls: 5, ballSize: 'medium', hole: 'shallow', cupSize: 'large', rolling: 'tuned', plate: 'normal', obstacles: 'posts' },
+  expert: { balls: 7, ballSize: 'medium', hole: 'shallow', cupSize: 'large', rolling: 'real', plate: 'normal', obstacles: 'posts' },
 };
 
 // Pocket: a seated ball sits 0.3R proud, so others bounce off it like a post.
@@ -46,11 +47,17 @@ const PLATE_SCALE = { small: 0.67, normal: 1, large: 1.33 };
 // Radius of the circle the holes sit on, in metres on a normal plate (150 mm).
 // Five holes sit in close, about a ball's width apart; one hole is central.
 const HOLE_RING = { 1: 0, 3: 0.07, 5: 0.045, 7: 0.07 };
+// Ball diameter 16, 20 or 25 mm on a normal plate. Holes are sized to the ball,
+// so a bigger ball means bigger holes, a more crowded plate and a more
+// forgiving catch; the tilt needed to roll a ball does not change with size.
+const BALL_SCALE = { small: 0.8, medium: 1, large: 1.25 };
 
 export function settingsKey(s) {
-  // Cup size only matters for cups; large keeps the key it had before cup sizes existed
+  // Settings added later only appear when changed from their original value,
+  // so best times saved before they existed keep their keys
   const size = s.hole !== 'pocket' && s.cupSize && s.cupSize !== 'large' ? `-${s.cupSize}` : '';
-  return `${s.balls}-${s.hole}-${s.rolling}-${s.plate}-${s.obstacles}${size}`;
+  const ball = s.ballSize && s.ballSize !== 'medium' ? `-ball-${s.ballSize}` : '';
+  return `${s.balls}-${s.hole}-${s.rolling}-${s.plate}-${s.obstacles}${size}${ball}`;
 }
 
 export function presetOf(s) {
@@ -58,14 +65,47 @@ export function presetOf(s) {
   return null;
 }
 
+// Every gap between obstacles, and between the guards and the plate edge,
+// must be at least this many ball diameters.
+const MIN_GAP = 1.4;
+
 export function buildWorld(s, rand = Math.random) {
   const k = PLATE_SCALE[s.plate];
-  const R = 0.01 * k, plateR = 0.15 * k, ringR = HOLE_RING[s.balls] * k;
+  const R = 0.01 * k * BALL_SCALE[s.ballSize ?? 'medium'], plateR = 0.15 * k;
+  const n = s.balls;
+  const shape = HOLES[s.hole](R, CUP_RADIUS[s.cupSize ?? 'large']);
+  // Start from the usual ring (pushed out if big holes would sit less than a
+  // ball's width apart), then widen it until every gap fits a ball comfortably.
+  // If even that runs out of room (7 large balls with guards on a small plate),
+  // the guards are shortened to just cover their holes, then moved in closer.
+  const firstRing = n > 1 ? Math.max(HOLE_RING[n] * k, (2 * shape.a + 2 * R + 0.0005 * k) / (2 * Math.sin(Math.PI / n))) : 0;
+  let ringR, layout;
+  for (const guard of [{ overhang: R, slack: 0.003 * k }, { overhang: 0.3 * R, slack: 0.003 * k }, { overhang: 0.3 * R, slack: 0.001 * k }]) {
+    ringR = firstRing;
+    layout = lay(s, k, R, plateR, ringR, shape, guard);
+    while (n > 1 && narrowest(layout, R, plateR) < MIN_GAP * 2 * R && ringR < 0.6 * plateR) {
+      ringR += 0.001 * k;
+      layout = lay(s, k, R, plateR, ringR, shape, guard);
+    }
+    if (narrowest(layout, R, plateR) >= MIN_GAP * 2 * R) break;
+  }
+  const W = createWorld({ R, c: ROLLING[s.rolling], plateR, holes: layout.holes, obstacles: layout.obstacles });
+  // Balls start spread along the rim
+  const start = rand() * 2 * Math.PI;
+  for (let i = 0; i < n; i++) {
+    const ang = start + (i / n) * 2 * Math.PI;
+    const r = plateR - R - 0.001 * k;
+    addBall(W, r * Math.cos(ang), r * Math.sin(ang));
+  }
+  return W;
+}
+
+function lay(s, k, R, plateR, ringR, shape, guard) {
   const n = s.balls;
   const holes = [];
   for (let i = 0; i < n; i++) {
     const ang = (i / n) * 2 * Math.PI + Math.PI / 2;
-    holes.push({ x: ringR * Math.cos(ang), y: ringR * Math.sin(ang), ux: Math.cos(ang), uy: Math.sin(ang), ...HOLES[s.hole](R, CUP_RADIUS[s.cupSize ?? 'large']) });
+    holes.push({ x: ringR * Math.cos(ang), y: ringR * Math.sin(ang), ux: Math.cos(ang), uy: Math.sin(ang), ...shape });
   }
   const obstacles = [];
   if (s.obstacles === 'posts' || s.obstacles === 'both') {
@@ -74,7 +114,9 @@ export function buildWorld(s, rand = Math.random) {
     // and close off every way in.
     const guarded = s.obstacles === 'both';
     const m = guarded && n > 1 ? n : Math.max(5, n);
-    const r = n === 1 ? 0.6 * plateR : guarded ? ringR : (ringR + plateR) / 2;
+    // Otherwise half way out to the rim, but never so far out that a ball can't pass behind
+    const outer = Math.min(n === 1 ? 0.6 * plateR : (ringR + plateR) / 2, plateR - (MIN_GAP + 0.05) * 2 * R - 0.005 * k);
+    const r = guarded && n > 1 ? ringR : outer;
     for (let i = 0; i < m; i++) {
       const ang = ((i + 0.5) / m) * 2 * Math.PI + Math.PI / 2;
       obstacles.push({ x1: r * Math.cos(ang), y1: r * Math.sin(ang), x2: r * Math.cos(ang), y2: r * Math.sin(ang), r: 0.005 * k, kind: 'post' });
@@ -86,18 +128,32 @@ export function buildWorld(s, rand = Math.random) {
       // Sized for the largest cup whatever the hole, so smaller holes never pull
       // the guards in towards the posts
       const ga = Math.max(h.a, CUP_RADIUS.large * R);
-      const off = ga + R + 0.003 * k, half = ga + R;
+      const off = ga + R + guard.slack, half = ga + guard.overhang;
       const cx = h.x + off * h.ux, cy = h.y + off * h.uy;
       obstacles.push({ x1: cx - half * h.uy, y1: cy + half * h.ux, x2: cx + half * h.uy, y2: cy - half * h.ux, r: 0.002 * k, kind: 'guard' });
     }
   }
-  const W = createWorld({ R, c: ROLLING[s.rolling], plateR, holes, obstacles });
-  // Balls start spread along the rim
-  const start = rand() * 2 * Math.PI;
-  for (let i = 0; i < n; i++) {
-    const ang = start + (i / n) * 2 * Math.PI;
-    const r = plateR - R - 0.001 * k;
-    addBall(W, r * Math.cos(ang), r * Math.sin(ang));
+  return { holes, obstacles };
+}
+
+// Smallest clear gap between obstacles, or between an obstacle and the plate edge
+function narrowest({ obstacles }, R, plateR) {
+  let min = Infinity;
+  for (let i = 0; i < obstacles.length; i++) {
+    const o = obstacles[i];
+    for (let j = i + 1; j < obstacles.length; j++) min = Math.min(min, segGap(o, obstacles[j]));
+    min = Math.min(min, plateR - Math.max(Math.hypot(o.x1, o.y1), Math.hypot(o.x2, o.y2)) - o.r);
   }
-  return W;
+  return min;
+}
+
+function segGap(o, p) {
+  const d = Math.min(ptSeg(o.x1, o.y1, p), ptSeg(o.x2, o.y2, p), ptSeg(p.x1, p.y1, o), ptSeg(p.x2, p.y2, o));
+  return d - o.r - p.r; // obstacles never cross, so end-point distances are enough
+}
+
+function ptSeg(x, y, o) {
+  const ex = o.x2 - o.x1, ey = o.y2 - o.y1, L2 = ex * ex + ey * ey;
+  const t = L2 > 0 ? Math.max(0, Math.min(1, ((x - o.x1) * ex + (y - o.y1) * ey) / L2)) : 0;
+  return Math.hypot(x - (o.x1 + t * ex), y - (o.y1 + t * ey));
 }

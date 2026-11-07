@@ -145,6 +145,25 @@ test('the old best-time keys still work for large cups and pockets', () => {
   assert.equal(settingsKey({ ...PRESETS.medium, cupSize: 'small' }), '5-deep-tuned-normal-none-small');
 });
 
+test('holes never crowd each other or an obstacle', () => {
+  for (const balls of OPTIONS.balls.values) for (const obstacles of OPTIONS.obstacles.values) for (const cupSize of OPTIONS.cupSize.values) for (const hole of OPTIONS.hole.values) {
+    const W = buildWorld({ balls, hole, cupSize, rolling: 'tuned', plate: 'normal', obstacles }, () => 0.3);
+    const where = `${balls} balls, ${hole}, ${cupSize}, ${obstacles}`;
+    for (let i = 0; i < W.holes.length; i++) for (let j = i + 1; j < W.holes.length; j++) {
+      const a = W.holes[i], b = W.holes[j];
+      assert.ok(Math.hypot(a.x - b.x, a.y - b.y) - a.a - b.a >= 2 * W.R, `${where}: holes closer than a ball width`);
+    }
+    for (const o of W.obstacles) for (const h of W.holes) {
+      assert.ok(obstacleGap(o, { x1: h.x, y1: h.y, x2: h.x, y2: h.y, r: h.a }) > 0.005, `${where}: ${o.kind} touches a hole`);
+    }
+  }
+});
+
+test('five holes sit close to the centre', () => {
+  const W = buildWorld({ ...PRESETS.medium }, () => 0.3);
+  for (const h of W.holes) assert.ok(Math.abs(Math.hypot(h.x, h.y) - 0.045) < 1e-9);
+});
+
 test('every preset builds a world whose balls start on the plate and clear of obstacles', () => {
   for (const s of Object.values(PRESETS)) {
     const W = buildWorld(s, () => 0.3);

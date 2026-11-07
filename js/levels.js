@@ -43,6 +43,9 @@ const CUP_RADIUS = { large: 1.6, medium: 1.2, small: 0.8 };
 const ROLLING = { tuned: 0.01, real: 0.002 };
 // Everything scales with the plate, so a bigger plate looks the same but plays slower.
 const PLATE_SCALE = { small: 0.67, normal: 1, large: 1.33 };
+// Radius of the circle the holes sit on, in metres on a normal plate (150 mm).
+// Five holes sit in close, about a ball's width apart; one hole is central.
+const HOLE_RING = { 1: 0, 3: 0.07, 5: 0.045, 7: 0.07 };
 
 export function settingsKey(s) {
   // Cup size only matters for cups; large keeps the key it had before cup sizes existed
@@ -57,13 +60,12 @@ export function presetOf(s) {
 
 export function buildWorld(s, rand = Math.random) {
   const k = PLATE_SCALE[s.plate];
-  const R = 0.01 * k, plateR = 0.15 * k, ringR = 0.07 * k;
+  const R = 0.01 * k, plateR = 0.15 * k, ringR = HOLE_RING[s.balls] * k;
   const n = s.balls;
   const holes = [];
   for (let i = 0; i < n; i++) {
     const ang = (i / n) * 2 * Math.PI + Math.PI / 2;
-    const r = n === 1 ? 0 : ringR;
-    holes.push({ x: r * Math.cos(ang), y: r * Math.sin(ang), ux: Math.cos(ang), uy: Math.sin(ang), ...HOLES[s.hole](R, CUP_RADIUS[s.cupSize ?? 'large']) });
+    holes.push({ x: ringR * Math.cos(ang), y: ringR * Math.sin(ang), ux: Math.cos(ang), uy: Math.sin(ang), ...HOLES[s.hole](R, CUP_RADIUS[s.cupSize ?? 'large']) });
   }
   const obstacles = [];
   if (s.obstacles === 'posts' || s.obstacles === 'both') {

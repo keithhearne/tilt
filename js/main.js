@@ -44,6 +44,7 @@ function buildMenu() {
   for (const [key, opt] of Object.entries(OPTIONS)) {
     const row = document.createElement('div');
     row.className = 'option';
+    row.dataset.key = key;
     const label = document.createElement('span');
     label.textContent = opt.label;
     row.appendChild(label);
@@ -72,6 +73,14 @@ function refreshMenu() {
   const p = presetOf(settings);
   for (const b of document.querySelectorAll('.preset')) b.classList.toggle('on', b.dataset.preset === p);
   for (const b of document.querySelectorAll('.seg button')) b.classList.toggle('on', String(settings[b.dataset.key]) === b.dataset.value);
+  // Cup size does nothing for pockets
+  for (const [key, opt] of Object.entries(OPTIONS)) {
+    if (!opt.cupsOnly) continue;
+    const off = settings.hole === 'pocket';
+    const row = document.querySelector(`.option[data-key="${key}"]`);
+    row.classList.toggle('off', off);
+    for (const b of row.querySelectorAll('button')) b.disabled = off;
+  }
   const best = store.get('tilt-best', {})[settingsKey(settings)];
   $('best').textContent = best ? `Best: ${fmtTime(best)}` : 'No best time yet';
   $('custom-label').textContent = p ? `Settings (${p})` : 'Settings (custom)';

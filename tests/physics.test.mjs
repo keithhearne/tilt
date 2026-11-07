@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { G, createWorld, addBall, step, seatedHole } from '../js/physics.js';
-import { buildWorld, PRESETS, OPTIONS } from '../js/levels.js';
+import { buildWorld, PRESETS, OPTIONS, settingsKey } from '../js/levels.js';
 
 const deg = (x) => (x * Math.PI) / 180;
 const tilt = (t) => [G * Math.sin(deg(t)), G * Math.cos(deg(t))];
@@ -112,13 +112,37 @@ function obstacleGap(o, p) {
 }
 
 test('every obstacle layout leaves gaps a ball fits through comfortably', () => {
-  for (const balls of OPTIONS.balls.values) for (const obstacles of OPTIONS.obstacles.values) for (const plate of OPTIONS.plate.values) {
-    const W = buildWorld({ balls, hole: 'shallow', rolling: 'tuned', plate, obstacles }, () => 0.3);
+  for (const balls of OPTIONS.balls.values) for (const obstacles of OPTIONS.obstacles.values) for (const plate of OPTIONS.plate.values) for (const cupSize of OPTIONS.cupSize.values) for (const hole of OPTIONS.hole.values) {
+    const W = buildWorld({ balls, hole, cupSize, rolling: 'tuned', plate, obstacles }, () => 0.3);
     for (let i = 0; i < W.obstacles.length; i++) for (let j = i + 1; j < W.obstacles.length; j++) {
       const g = obstacleGap(W.obstacles[i], W.obstacles[j]);
-      assert.ok(g >= 1.4 * 2 * W.R, `${balls} balls, ${obstacles}, ${plate}: ${W.obstacles[i].kind}-${W.obstacles[j].kind} gap ${(g * 1000).toFixed(1)}mm`);
+      assert.ok(g >= 1.4 * 2 * W.R, `${balls} balls, ${obstacles}, ${plate}, ${hole}, ${cupSize} cups: ${W.obstacles[i].kind}-${W.obstacles[j].kind} gap ${(g * 1000).toFixed(1)}mm`);
     }
   }
+});
+
+test('smaller cups hold harder against a quick flick', () => {
+  // Ramp to the tilt over 0.1 s and hold: smaller cups leave less room for a run-up
+  const flickOut = (a) => {
+    const h = { x: 0, y: 0, a, d: R * (1 - Math.cos(deg(30))) };
+    for (let th = 1; th <= 35; th += 1) {
+      const { W, b } = settled(h);
+      for (let i = 0; i < 1.1 / W.dt; i++) {
+        const [gx, gz] = tilt(Math.min(1, (i * W.dt) / 0.1) * th);
+        step(W, gx, 0, gz);
+        if (!seatedHole(W, b) && b.z >= R - 1e-5) return th;
+      }
+    }
+    return Infinity;
+  };
+  const large = flickOut(0.016), medium = flickOut(0.012), small = flickOut(0.008);
+  assert.ok(large < medium && medium < small, `large ${large}, medium ${medium}, small ${small}`);
+});
+
+test('the old best-time keys still work for large cups and pockets', () => {
+  assert.equal(settingsKey({ ...PRESETS.medium, cupSize: 'large' }), '5-deep-tuned-normal-none');
+  assert.equal(settingsKey({ ...PRESETS.easy, cupSize: 'small' }), '3-pocket-tuned-normal-none');
+  assert.equal(settingsKey({ ...PRESETS.medium, cupSize: 'small' }), '5-deep-tuned-normal-none-small');
 });
 
 test('every preset builds a world whose balls start on the plate and clear of obstacles', () => {

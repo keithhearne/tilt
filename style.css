@@ -55,6 +55,7 @@ h1 { margin: 0; font-size: 2.4rem; letter-spacing: 0.02em; }
 #options { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 .option { display: flex; flex-direction: column; gap: 6px; }
 .option > span { font-size: 0.85rem; color: var(--muted); }
+.option.off { opacity: 0.4; }
 .seg { display: flex; gap: 6px; flex-wrap: wrap; }
 .seg button { flex: 1 1 0; padding: 8px 6px; font-size: 0.9rem; min-width: 0; }
 

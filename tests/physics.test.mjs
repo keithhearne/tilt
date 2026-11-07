@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { G, createWorld, addBall, step, seatedHole } from '../js/physics.js';
-import { buildWorld, PRESETS } from '../js/levels.js';
+import { buildWorld, PRESETS, OPTIONS } from '../js/levels.js';
 
 const deg = (x) => (x * Math.PI) / 180;
 const tilt = (t) => [G * Math.sin(deg(t)), G * Math.cos(deg(t))];
@@ -97,6 +97,27 @@ test('a filled pocket deflects other balls and never traps them', () => {
     run(W, 2, 0, gy, gz);
     assert.ok(seatedHole(W, first), 'seated ball stays in');
     assert.ok(!seatedHole(W, second) && Math.hypot(second.x, second.y) > 0.025, `offset ${off} speed ${v}: second ball stuck`);
+  }
+});
+
+// Narrowest clear gap between two capsule obstacles, by sampling along each
+function obstacleGap(o, p) {
+  let best = Infinity;
+  for (let i = 0; i <= 40; i++) for (let j = 0; j <= 40; j++) {
+    const ax = o.x1 + ((o.x2 - o.x1) * i) / 40, ay = o.y1 + ((o.y2 - o.y1) * i) / 40;
+    const bx = p.x1 + ((p.x2 - p.x1) * j) / 40, by = p.y1 + ((p.y2 - p.y1) * j) / 40;
+    best = Math.min(best, Math.hypot(ax - bx, ay - by) - o.r - p.r);
+  }
+  return best;
+}
+
+test('every obstacle layout leaves gaps a ball fits through comfortably', () => {
+  for (const balls of OPTIONS.balls.values) for (const obstacles of OPTIONS.obstacles.values) for (const plate of OPTIONS.plate.values) {
+    const W = buildWorld({ balls, hole: 'shallow', rolling: 'tuned', plate, obstacles }, () => 0.3);
+    for (let i = 0; i < W.obstacles.length; i++) for (let j = i + 1; j < W.obstacles.length; j++) {
+      const g = obstacleGap(W.obstacles[i], W.obstacles[j]);
+      assert.ok(g >= 1.4 * 2 * W.R, `${balls} balls, ${obstacles}, ${plate}: ${W.obstacles[i].kind}-${W.obstacles[j].kind} gap ${(g * 1000).toFixed(1)}mm`);
+    }
   }
 });
 

@@ -61,8 +61,12 @@ export function buildWorld(s, rand = Math.random) {
   }
   const obstacles = [];
   if (s.obstacles === 'posts' || s.obstacles === 'both') {
-    const m = Math.max(5, n);
-    const r = n === 1 ? ringR : (ringR + plateR) / 2;
+    // With guards too, the posts are staggered onto the hole ring, one between
+    // each pair of holes. At the outer radius they line up with the guard ends
+    // and close off every way in.
+    const guarded = s.obstacles === 'both';
+    const m = guarded && n > 1 ? n : Math.max(5, n);
+    const r = n === 1 ? 0.6 * plateR : guarded ? ringR : (ringR + plateR) / 2;
     for (let i = 0; i < m; i++) {
       const ang = ((i + 0.5) / m) * 2 * Math.PI + Math.PI / 2;
       obstacles.push({ x1: r * Math.cos(ang), y1: r * Math.sin(ang), x2: r * Math.cos(ang), y2: r * Math.sin(ang), r: 0.005 * k, kind: 'post' });

@@ -152,3 +152,14 @@ export function seatedHole(W, b) {
   }
   return null;
 }
+
+// How many holes have at least one ball in them. Two balls sharing a big cup
+// fill only one hole, so a win needs this to equal the number of holes.
+export function filledHoles(W) {
+  const filled = new Set();
+  for (const b of W.balls) {
+    const h = seatedHole(W, b);
+    if (h) filled.add(h);
+  }
+  return filled.size;
+}

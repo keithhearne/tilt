@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { G, createWorld, addBall, step, seatedHole } from '../js/physics.js';
+import { G, createWorld, addBall, step, seatedHole, filledHoles } from '../js/physics.js';
 import { buildWorld, PRESETS, OPTIONS, settingsKey } from '../js/levels.js';
 
 const deg = (x) => (x * Math.PI) / 180;
@@ -174,6 +174,21 @@ test('ball size scales the ball and its holes together', () => {
   assert.ok(small.R < medium.R && medium.R < large.R);
   for (const W of sizes) assert.ok(Math.abs(W.holes[0].a / W.R - 1.6) < 1e-9, 'large cups stay 1.6 ball radii');
   assert.equal(medium.R, 0.01);
+});
+
+test('two balls sharing one big cup fill only one hole', () => {
+  // Large balls in large deep cups: the cup is 40 mm across, room for two 25 mm balls
+  const W = buildWorld({ ...PRESETS.medium, balls: 3, ballSize: 'large' }, () => 0.3);
+  const [h1, h2] = W.holes;
+  const [a, b, c] = W.balls;
+  // Two balls side by side in the first cup, the third in the second cup
+  for (const [ball, x, y] of [[a, h1.x - 0.6 * W.R * h1.uy, h1.y + 0.6 * W.R * h1.ux], [b, h1.x + 1.5 * W.R * h1.uy, h1.y - 1.5 * W.R * h1.ux], [c, h2.x, h2.y]]) {
+    ball.x = x; ball.y = y; ball.z = W.R - h1.d + 1e-6;
+  }
+  run(W, 0.5, 0, 0, G);
+  assert.ok(W.balls.every((ball) => seatedHole(W, ball)), 'all three balls should be seated');
+  assert.equal(seatedHole(W, a), seatedHole(W, b), 'two balls share the first cup');
+  assert.equal(filledHoles(W), 2, 'only two of three holes are filled');
 });
 
 test('every preset builds a world whose balls start on the plate and clear of obstacles', () => {

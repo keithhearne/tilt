@@ -1,10 +1,10 @@
 import { buildWorld, OPTIONS, PRESETS, settingsKey, presetOf } from './levels.js';
-import { step, seatedHole } from './physics.js';
+import { step, filledHoles } from './physics.js';
 import { Tilt, screenAngle } from './input.js';
 import { draw } from './render.js';
 
 const PLATE_LAG = 0.08; // seconds; stands in for the plate's weight
-const HOLD_TO_WIN = 1; // all balls must stay seated this long
+const HOLD_TO_WIN = 1; // every hole must stay filled this long
 const MAX_STEPS_PER_FRAME = 60;
 const COUNTDOWN = 3; // seconds of 3-2-1; balls stay still and the angle at Go becomes level
 
@@ -263,12 +263,13 @@ function frame(now) {
     while (acc >= W.dt && n < MAX_STEPS_PER_FRAME) { step(W, f.gx, f.gy, f.gz); acc -= W.dt; n++; }
     if (n === MAX_STEPS_PER_FRAME) acc = 0; // device too slow: run in slow motion instead of stalling
     const elapsed = (now - started - pausedTotal) / 1000;
-    const seated = W.balls.filter((b) => seatedHole(W, b)).length;
+    // Count filled holes, not seated balls: two balls in one cup fill one hole
+    const seated = filledHoles(W);
     if (seated > seatedBefore && navigator.vibrate) navigator.vibrate(15);
     seatedBefore = seated;
-    $('count').textContent = `${seated}/${W.balls.length}`;
+    $('count').textContent = `${seated}/${W.holes.length}`;
     $('timer').textContent = fmtTime(elapsed);
-    if (seated === W.balls.length) {
+    if (seated === W.holes.length) {
       if (allSeatedSince === null) allSeatedSince = elapsed;
       if (elapsed - allSeatedSince >= HOLD_TO_WIN) win();
     } else {

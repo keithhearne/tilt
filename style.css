@@ -101,5 +101,7 @@ h1 { margin: 0; font-size: 2.4rem; letter-spacing: 0.02em; }
 }
 .card p { margin: 0; font-size: 1.05rem; }
 .card strong { font-size: 2rem; font-variant-numeric: tabular-nums; }
+.card .hint { display: block; margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
+.card .big { display: block; min-width: 2.2ch; font-size: 4.5rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .row { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
 .row:empty { display: none; }

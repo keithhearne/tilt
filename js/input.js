@@ -7,9 +7,7 @@
 // when the screen rotates.
 
 const G = 9.81;
-const FLAT_LIMIT = Math.cos((15 * Math.PI) / 180); // must start within 15 deg of flat
-const STEADY_LIMIT = 0.35; // m/s^2 spread allowed while holding flat
-const CALIBRATE_SECONDS = 0.6;
+const LEVEL_SECONDS = 0.5; // the angle is averaged over this long before Go
 
 export class Tilt {
   constructor() {
@@ -72,40 +70,43 @@ export class Tilt {
     return null;
   }
 
-  // Call every frame while waiting for the player to hold the phone flat.
-  // Returns { state: 'wait' | 'tilted' | 'shaky' | 'ok', progress }.
-  calibrate() {
+  // Call every frame of the countdown; whatever angle the phone is held at
+  // just before Go becomes level.
+  sampleLevel() {
     const r = this.reading();
-    if (!r) return { state: 'wait', progress: 0 };
+    if (!r) return;
     const now = performance.now();
     this.samples.push({ t: now, src: r.src, v: r.v.slice() });
-    this.samples = this.samples.filter((s) => now - s.t <= CALIBRATE_SECONDS * 1000 && s.src === r.src);
-    const [x, y, z] = r.v;
-    const m = Math.hypot(x, y, z);
-    if (m < 1 || Math.abs(z) / m < FLAT_LIMIT) { this.samples = []; return { state: 'tilted', progress: 0 }; }
-    const span = this.samples.length ? (now - this.samples[0].t) / 1000 : 0;
-    for (let i = 0; i < 3; i++) {
-      const vals = this.samples.map((s) => s.v[i]);
-      if (Math.max(...vals) - Math.min(...vals) > STEADY_LIMIT * 2) {
-        this.samples = this.samples.slice(-1);
-        return { state: 'shaky', progress: 0 };
-      }
+    this.samples = this.samples.filter((s) => now - s.t <= LEVEL_SECONDS * 1000 && s.src === r.src);
+  }
+
+  // Fix "level" at Go. Returns false if there was no reading to use.
+  setLevel() {
+    const r = this.reading();
+    const samples = this.samples.length ? this.samples : r ? [{ src: r.src, v: r.v }] : [];
+    if (!samples.length) return false;
+    const src = samples[samples.length - 1].src;
+    const mean = [0, 1, 2].map((i) => samples.reduce((a, s) => a + s.v[i], 0) / samples.length);
+    this.source = src;
+    // The spec reports +g along "up". Some iPhones have reported the opposite
+    // sign, so check the motion reading against the orientation angles when we
+    // have both, which works at any angle; otherwise assume the screen faces up.
+    if (src === 'motion') {
+      const o = this.orient && performance.now() - this.orientAt < 500 ? this.orient : null;
+      this.sign = (o ? dot(mean, o) : mean[2]) < 0 ? -1 : 1;
+    } else {
+      this.sign = 1;
     }
-    if (span < CALIBRATE_SECONDS * 0.95 || this.samples.length < 5) return { state: 'ok', progress: span / CALIBRATE_SECONDS };
-    const mean = [0, 1, 2].map((i) => this.samples.reduce((a, s) => a + s.v[i], 0) / this.samples.length);
-    this.source = r.src;
-    // Face up, the spec reports +g on z. Some iPhones have reported the
-    // opposite sign, so take it from the reading itself.
-    this.sign = r.src === 'motion' && mean[2] < 0 ? -1 : 1;
     const up = norm(mean.map((v) => v * this.sign));
-    // Plate axes: "flat" is wherever the phone was held, x and y follow the device
-    let px = sub([1, 0, 0], scale(up, up[0]));
-    px = norm(px);
-    const py = cross(up, px);
+    // Plate axes follow the device's own x (or y when x points almost straight up)
+    const ref = Math.abs(up[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+    let px = norm(sub(ref, scale(up, dot(ref, up))));
+    let py = cross(up, px);
+    if (ref[1] === 1) { const t = px; px = scale(py, -1); py = t; }
     this.basis = { px, py, up };
     this.smooth = null;
     this.samples = [];
-    return { state: 'done', progress: 1 };
+    return true;
   }
 
   // Effective gravity on the plate: { gx, gy } in-plane, gz pressing into it.

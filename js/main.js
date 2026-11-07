@@ -6,6 +6,7 @@ import { draw } from './render.js';
 const PLATE_LAG = 0.08; // seconds; stands in for the plate's weight
 const HOLD_TO_WIN = 1; // all balls must stay seated this long
 const MAX_STEPS_PER_FRAME = 60;
+const COUNTDOWN = 3; // seconds of 3-2-1; balls stay still and the angle at Go becomes level
 
 const $ = (id) => document.getElementById(id);
 const menu = $('menu'), game = $('game'), canvas = $('board'), ctx = canvas.getContext('2d');
@@ -24,9 +25,10 @@ const store = {
 let settings = { ...PRESETS.medium, ...store.get('tilt-settings', {}) };
 const tilt = new Tilt();
 let W = null;
-let mode = 'menu'; // menu | waiting | calibrate | play | paused | won
+let mode = 'menu'; // menu | waiting | countdown | play | paused | won
 let started = 0, pausedAt = 0, pausedTotal = 0, allSeatedSince = null, finalTime = 0;
 let lastFrame = 0, acc = 0, lastForce = null, seatedBefore = 0;
+let countdownAt = 0, shownNumber = null, goUntil = 0, pausedFrom = null;
 let wakeLock = null;
 
 // --- menu -------------------------------------------------------------------
@@ -110,7 +112,7 @@ $('play').addEventListener('click', () => {
     const askedAt = performance.now();
     const wait = () => {
       if (mode !== 'waiting') return;
-      if (tilt.hasData()) { beginCalibration(); return; }
+      if (tilt.hasData()) { beginRound(); return; }
       if (performance.now() - askedAt > 2000) {
         tilt.stop();
         toMenu();
@@ -124,7 +126,7 @@ $('play').addEventListener('click', () => {
 });
 
 $('back').addEventListener('click', () => toMenu());
-$('restart').addEventListener('click', () => beginCalibration());
+$('restart').addEventListener('click', () => beginRound());
 
 function enterGame() {
   menu.hidden = true;
@@ -142,15 +144,15 @@ function toMenu() {
   refreshMenu();
 }
 
-function beginCalibration() {
+function beginRound() {
   W = buildWorld(settings);
-  mode = 'calibrate';
   allSeatedSince = null;
   seatedBefore = 0;
   lastForce = null;
+  goUntil = 0;
   $('timer').textContent = fmtTime(0);
   $('count').textContent = `0/${W.balls.length}`;
-  setOverlay('Hold your phone flat and still…');
+  startCountdown(performance.now());
 }
 
 function setOverlay(text, buttons = []) {
@@ -175,13 +177,14 @@ function win() {
   $('timer').textContent = fmtTime(finalTime);
   if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
   setOverlay(`<strong>${fmtTime(finalTime)}</strong><br>${isBest ? 'New best time!' : `Best: ${fmtTime(bests[key])}`}`, [
-    ['Play again', () => beginCalibration(), true],
+    ['Play again', () => beginRound(), true],
     ['Menu', () => toMenu()],
   ]);
 }
 
 function pause() {
-  if (mode !== 'play') return;
+  if (mode !== 'play' && mode !== 'countdown') return;
+  pausedFrom = mode;
   mode = 'paused';
   pausedAt = performance.now();
   setOverlay('Paused', [['Continue', resume, true], ['Menu', () => toMenu()]]);
@@ -189,6 +192,7 @@ function pause() {
 
 function resume() {
   if (mode !== 'paused') return;
+  if (pausedFrom === 'countdown') { startCountdown(performance.now()); return; }
   pausedTotal += performance.now() - pausedAt;
   acc = 0;
   lastFrame = performance.now();
@@ -215,6 +219,12 @@ function releaseWakeLock() {
   wakeLock = null;
 }
 
+function startCountdown(now) {
+  mode = 'countdown';
+  countdownAt = now;
+  shownNumber = null;
+}
+
 // --- frame loop -----------------------------------------------------------
 function frame(now) {
   requestAnimationFrame(frame);
@@ -222,27 +232,30 @@ function frame(now) {
   lastFrame = now;
   if (game.hidden || !W) return;
 
-  if (mode === 'calibrate') {
-    const c = tilt.calibrate();
-    if (c.state === 'done') {
+  if (mode === 'countdown') {
+    tilt.sampleLevel();
+    const left = COUNTDOWN - (now - countdownAt) / 1000;
+    if (left > 0) {
+      const num = Math.ceil(left);
+      if (num !== shownNumber) {
+        shownNumber = num;
+        setOverlay(`<span class="big">${num}</span><span class="hint">Hold the phone how you want to play. Its angle at Go becomes level.</span>`);
+        if (navigator.vibrate) navigator.vibrate(10);
+      }
+    } else {
+      tilt.setLevel();
       mode = 'play';
       started = now;
       pausedTotal = 0;
       acc = 0;
-      setOverlay('');
-    } else {
-      const pct = Math.round(c.progress * 100);
-      const msg = {
-        wait: 'Waiting for the sensors…',
-        tilted: 'Lay your phone flat, screen up.',
-        shaky: 'Hold it still…',
-        ok: `Hold flat… ${pct}%`,
-      }[c.state];
-      setOverlay(msg);
+      goUntil = now + 600;
+      setOverlay('<span class="big">Go!</span>');
+      if (navigator.vibrate) navigator.vibrate(30);
     }
   }
 
   if (mode === 'play') {
+    if (goUntil && now > goUntil) { goUntil = 0; setOverlay(''); }
     const f = tilt.force(dt, PLATE_LAG);
     lastForce = f;
     acc += dt;
@@ -263,7 +276,7 @@ function frame(now) {
     }
   }
 
-  draw(ctx, W, view(), mode === 'play' || mode === 'calibrate' ? (mode === 'play' ? lastForce : null) : null);
+  draw(ctx, W, view(), mode === 'play' ? lastForce : null);
 }
 
 function view() {

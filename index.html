@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Tilt</title>
+  <meta name="description" content="Tilt a steel plate to roll every ball into a hole, as fast as you can.">
+  <meta name="theme-color" content="#14171b">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tilt">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="menu" class="screen">
+    <h1>Tilt</h1>
+    <p class="lead">Tilt the plate to roll every ball into its own hole, as fast as you can. Gentle tilts move them; a sharp flick knocks seated balls back out.</p>
+    <div id="presets" class="presets"></div>
+    <details class="settings">
+      <summary id="custom-label">Settings</summary>
+      <div id="options"></div>
+    </details>
+    <button id="play" class="primary big">Play</button>
+    <p id="best" class="best"></p>
+    <p id="msg" class="msg" hidden></p>
+    <p class="note">Start with your phone lying flat, screen up. That position becomes level.</p>
+  </main>
+
+  <div id="game" class="screen" hidden>
+    <canvas id="board"></canvas>
+    <header class="hud">
+      <button id="back" aria-label="Back to menu">Menu</button>
+      <span id="timer" class="timer">0:00.0</span>
+      <span id="count" class="count">0/0</span>
+      <button id="restart" aria-label="Restart">Restart</button>
+    </header>
+    <div id="overlay" class="overlay" hidden>
+      <div class="card">
+        <p id="overlay-text"></p>
+        <div id="overlay-buttons" class="row"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

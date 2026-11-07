@@ -1,0 +1,16 @@
+{
+  "name": "Tilt",
+  "short_name": "Tilt",
+  "description": "Tilt a steel plate to roll every ball into a hole, as fast as you can.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14171b",
+  "theme_color": "#14171b",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

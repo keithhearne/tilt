@@ -23,6 +23,7 @@ const store = {
 };
 
 let settings = { ...PRESETS.medium, ...store.get('tilt-settings', {}) };
+delete settings.plate; // replaced by speed
 const tilt = new Tilt();
 let W = null;
 let mode = 'menu'; // menu | waiting | countdown | play | paused | won
@@ -258,7 +259,7 @@ function frame(now) {
     if (goUntil && now > goUntil) { goUntil = 0; setOverlay(''); }
     const f = tilt.force(dt, PLATE_LAG);
     lastForce = f;
-    acc += dt;
+    acc += dt * W.timeScale;
     let n = 0;
     while (acc >= W.dt && n < MAX_STEPS_PER_FRAME) { step(W, f.gx, f.gy, f.gz); acc -= W.dt; n++; }
     if (n === MAX_STEPS_PER_FRAME) acc = 0; // device too slow: run in slow motion instead of stalling

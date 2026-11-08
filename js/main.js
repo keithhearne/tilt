@@ -1,5 +1,5 @@
 import { buildWorld, OPTIONS, PRESETS, settingsKey, presetOf } from './levels.js';
-import { step, filledHoles } from './physics.js';
+import { step, filledHoles, fallenBalls } from './physics.js';
 import { Tilt, screenAngle } from './input.js';
 import { draw } from './render.js';
 
@@ -26,7 +26,7 @@ let settings = { ...PRESETS.medium, ...store.get('tilt-settings', {}) };
 delete settings.plate; // replaced by speed
 const tilt = new Tilt();
 let W = null;
-let mode = 'menu'; // menu | waiting | countdown | play | paused | won
+let mode = 'menu'; // menu | waiting | countdown | play | paused | won | lost
 let started = 0, pausedAt = 0, pausedTotal = 0, allSeatedSince = null, finalTime = 0;
 let lastFrame = 0, acc = 0, lastForce = null, seatedBefore = 0;
 let countdownAt = 0, shownNumber = null, goUntil = 0, pausedFrom = null;
@@ -183,6 +183,16 @@ function win() {
   ]);
 }
 
+// Every hole needs a ball, so losing one over an open edge ends the round
+function lose() {
+  mode = 'lost';
+  if (navigator.vibrate) navigator.vibrate(200);
+  setOverlay('<strong>Off the edge</strong><br>A ball rolled off the plate.', [
+    ['Try again', () => beginRound(), true],
+    ['Menu', () => toMenu()],
+  ]);
+}
+
 function pause() {
   if (mode !== 'play' && mode !== 'countdown') return;
   pausedFrom = mode;
@@ -263,6 +273,7 @@ function frame(now) {
     let n = 0;
     while (acc >= W.dt && n < MAX_STEPS_PER_FRAME) { step(W, f.gx, f.gy, f.gz); acc -= W.dt; n++; }
     if (n === MAX_STEPS_PER_FRAME) acc = 0; // device too slow: run in slow motion instead of stalling
+    if (fallenBalls(W) > 0) { lose(); draw(ctx, W, view(), null); return; }
     const elapsed = (now - started - pausedTotal) / 1000;
     // Count filled holes, not seated balls: two balls in one cup fill one hole
     const seated = filledHoles(W);

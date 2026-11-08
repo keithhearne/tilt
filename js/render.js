@@ -13,14 +13,15 @@ export function draw(ctx, W, view, force) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
 
-  // Plate with a raised rim
+  // Plate with a raised rim, or with an open edge only a thin bevel
   const pr = W.plateR * s;
+  const rimW = W.open ? 2 : 9;
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 24;
   ctx.shadowOffsetY = 8;
   ctx.beginPath();
-  ctx.arc(cx, cy, pr + 10, 0, Math.PI * 2);
+  ctx.arc(cx, cy, pr + rimW + 1, 0, Math.PI * 2);
   ctx.fillStyle = '#3a4048';
   ctx.fill();
   ctx.restore();
@@ -29,7 +30,7 @@ export function draw(ctx, W, view, force) {
   rim.addColorStop(0.5, '#7d858f');
   rim.addColorStop(1, '#3d434b');
   ctx.beginPath();
-  ctx.arc(cx, cy, pr + 9, 0, Math.PI * 2);
+  ctx.arc(cx, cy, pr + rimW, 0, Math.PI * 2);
   ctx.fillStyle = rim;
   ctx.fill();
   const face = ctx.createRadialGradient(cx - pr * 0.35, cy - pr * 0.4, pr * 0.05, cx, cy, pr);
@@ -99,12 +100,14 @@ export function draw(ctx, W, view, force) {
     ctx.restore();
   }
 
-  // Balls, lowest first; sunk balls are darker and cast less shadow
-  const R = W.R * s;
-  const balls = [...W.balls].sort((a, b) => a.z - b.z);
+  // Balls, lowest first; sunk balls are darker and cast less shadow.
+  // One dropping over an open edge shrinks as it falls away.
+  const balls = W.balls.filter((b) => !b.fallen).sort((a, b) => a.z - b.z);
   for (const b of balls) {
     const [x, y] = P(b.x, b.y);
-    const sink = Math.max(0, Math.min(1, (W.R - b.z) / W.R));
+    const over = W.open && Math.hypot(b.x, b.y) > W.plateR;
+    const R = W.R * s * (over ? Math.max(0.5, 1 + Math.min(0, b.z) / (2 * W.R)) : 1);
+    const sink = over ? 0 : Math.max(0, Math.min(1, (W.R - b.z) / W.R));
     ctx.beginPath();
     ctx.ellipse(x + R * 0.28, y + R * 0.32, R * 0.95, R * 0.85, 0, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(0,0,0,${0.35 * (1 - sink * 0.8)})`;

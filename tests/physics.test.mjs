@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { G, createWorld, addBall, step, seatedHole, filledHoles } from '../js/physics.js';
+import { G, createWorld, addBall, step, seatedHole, filledHoles, fallenBalls } from '../js/physics.js';
 import { buildWorld, PRESETS, OPTIONS, settingsKey } from '../js/levels.js';
 
 const deg = (x) => (x * Math.PI) / 180;
@@ -208,4 +208,45 @@ test('every preset builds a world whose balls start on the plate and clear of ob
     run(W, 0.5, 0, 0, G);
     for (const b of W.balls) assert.ok(Math.abs(b.z - W.R) < 1e-4, 'balls should rest flat on the plate');
   }
+});
+
+test('an open edge lets a ball roll off; a walled one stops it', () => {
+  const [gx, gz] = tilt(5);
+  for (const open of [false, true]) {
+    const W = createWorld({ R, c: 0.01, plateR: 0.15, holes: [], open });
+    const b = addBall(W, 0.1, 0);
+    run(W, 2, gx, 0, gz);
+    if (open) {
+      assert.ok(b.fallen, 'ball should drop off the open edge');
+      assert.equal(fallenBalls(W), 1);
+    } else {
+      assert.ok(!b.fallen && Math.abs(Math.hypot(b.x, b.y) - (0.15 - R)) < 1e-3, 'ball should rest against the wall');
+    }
+  }
+});
+
+test('a ball rolling slowly along near an open edge stays on', () => {
+  const W = createWorld({ R, c: 0.01, plateR: 0.15, holes: [], open: true });
+  const b = addBall(W, 0, 0.15 - 1.5 * R);
+  run(W, 0.5, G * Math.sin(deg(2)), 0, G); // about 22 mm along a tangent: still on the plate
+  assert.ok(!b.fallen && Math.abs(b.z - R) < 1e-4, 'ball on the plate stays on it');
+});
+
+test('open-edge worlds start every ball on the plate, clear of obstacles', () => {
+  for (const s of Object.values(PRESETS)) {
+    for (const ballSize of OPTIONS.ballSize.values) for (const obstacles of OPTIONS.obstacles.values) {
+      const W = buildWorld({ ...s, ballSize, obstacles, edge: 'open' }, () => 0.3);
+      assert.ok(W.open);
+      for (const b of W.balls) {
+        assert.ok(Math.hypot(b.x, b.y) < W.plateR - W.R, 'ball starts fully on the plate');
+        for (const o of W.obstacles) {
+          const ex = o.x2 - o.x1, ey = o.y2 - o.y1, L2 = ex * ex + ey * ey;
+          const t = L2 > 0 ? Math.max(0, Math.min(1, ((b.x - o.x1) * ex + (b.y - o.y1) * ey) / L2)) : 0;
+          assert.ok(Math.hypot(b.x - o.x1 - t * ex, b.y - o.y1 - t * ey) > W.R + o.r, 'ball starts clear of obstacles');
+        }
+      }
+    }
+  }
+  assert.equal(settingsKey({ ...PRESETS.medium, edge: 'wall' }), '5-deep-tuned-normal-none', 'walled keeps old best times');
+  assert.equal(settingsKey({ ...PRESETS.medium, edge: 'open' }), '5-deep-tuned-normal-none-open');
 });

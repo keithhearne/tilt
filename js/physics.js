@@ -4,12 +4,13 @@
 
 export const G = 9.81;
 
-export function createWorld({ R, c, e = 0.65, mu = 0.3, plateR, holes, obstacles = [], dt = 1 / 1000 }) {
-  return { R, c, e, mu, plateR, holes, obstacles, dt, vRest: Math.max(0.004, 2 * G * dt), passes: 3, balls: [] };
+// open: no wall round the plate, so balls can roll off the edge
+export function createWorld({ R, c, e = 0.65, mu = 0.3, plateR, holes, obstacles = [], open = false, dt = 1 / 1000 }) {
+  return { R, c, e, mu, plateR, holes, obstacles, open, dt, vRest: Math.max(0.004, 2 * G * dt), passes: 3, balls: [] };
 }
 
 export function addBall(W, x, y) {
-  const b = { x, y, z: W.R, vx: 0, vy: 0, vz: 0, wx: 0, wy: 0, wz: 0 };
+  const b = { x, y, z: W.R, vx: 0, vy: 0, vz: 0, wx: 0, wy: 0, wz: 0, fallen: false };
   W.balls.push(b);
   return b;
 }
@@ -64,6 +65,15 @@ function contact(W, b, nx, ny, nz, gap) {
 
 function solveBall(W, b) {
   const R = W.R;
+  const rw = Math.hypot(b.x, b.y);
+  if (W.open && rw >= W.plateR) {
+    // Past an open edge the ball pivots on the plate's rim and drops away
+    const ex = b.x - (W.plateR * b.x) / rw, ey = b.y - (W.plateR * b.y) / rw, ez = b.z;
+    const dist = Math.hypot(ex, ey, ez);
+    if (dist < R) contact(W, b, ex / dist, ey / dist, ez / dist, dist - R);
+    if (b.z < -R || rw > W.plateR + 3 * R) b.fallen = true;
+    return;
+  }
   let h = null, r = Infinity;
   for (const hole of W.holes) {
     const d = Math.hypot(b.x - hole.x, b.y - hole.y);
@@ -85,9 +95,8 @@ function solveBall(W, b) {
       if (wg < 0) contact(W, b, -ux, -uy, 0, wg);
     }
   }
-  const rw = Math.hypot(b.x, b.y);
   const wg = W.plateR - rw - R;
-  if (wg < 0) contact(W, b, -b.x / rw, -b.y / rw, 0, wg);
+  if (!W.open && wg < 0) contact(W, b, -b.x / rw, -b.y / rw, 0, wg);
   // Obstacles are vertical capsules: posts have zero length, guards are short walls
   for (const o of W.obstacles) {
     const ex = o.x2 - o.x1, ey = o.y2 - o.y1, L2 = ex * ex + ey * ey;
@@ -133,16 +142,23 @@ function solvePair(W, A, B) {
 }
 
 // gx, gy: in-plane effective gravity (m/s^2). gz: its component pressing into the plate.
+// A ball that has fallen off is left where it went over and takes no further part.
 export function step(W, gx, gy, gz) {
-  const dt = W.dt, balls = W.balls;
+  const dt = W.dt, balls = W.balls.filter((b) => !b.fallen);
   for (const b of balls) {
     b.vx += gx * dt; b.vy += gy * dt; b.vz -= gz * dt;
     b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
   }
   for (let p = 0; p < W.passes; p++) {
-    for (const b of balls) solveBall(W, b);
-    for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) solvePair(W, balls[i], balls[j]);
+    for (const b of balls) if (!b.fallen) solveBall(W, b);
+    for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) {
+      if (!balls[i].fallen && !balls[j].fallen) solvePair(W, balls[i], balls[j]);
+    }
   }
+}
+
+export function fallenBalls(W) {
+  return W.balls.filter((b) => b.fallen).length;
 }
 
 // The hole a ball has properly sunk into, or null while it is only passing over.

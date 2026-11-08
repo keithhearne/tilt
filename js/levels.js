@@ -21,13 +21,14 @@ export const OPTIONS = {
     values: ['none', 'posts', 'guards', 'both'],
     names: { none: 'None', posts: 'Posts', guards: 'Guards', both: 'Both' },
   },
+  edge: { label: 'Plate edge', values: ['wall', 'open'], names: { wall: 'Walled', open: 'Open' } },
 };
 
 export const PRESETS = {
-  easy: { balls: 3, ballSize: 'medium', hole: 'pocket', cupSize: 'large', rolling: 'tuned', speed: 'normal', obstacles: 'none' },
-  medium: { balls: 5, ballSize: 'medium', hole: 'deep', cupSize: 'large', rolling: 'tuned', speed: 'normal', obstacles: 'none' },
-  hard: { balls: 5, ballSize: 'medium', hole: 'shallow', cupSize: 'large', rolling: 'tuned', speed: 'normal', obstacles: 'posts' },
-  expert: { balls: 7, ballSize: 'medium', hole: 'shallow', cupSize: 'large', rolling: 'real', speed: 'normal', obstacles: 'posts' },
+  easy: { balls: 3, ballSize: 'medium', hole: 'pocket', cupSize: 'large', rolling: 'tuned', speed: 'normal', obstacles: 'none', edge: 'wall' },
+  medium: { balls: 5, ballSize: 'medium', hole: 'deep', cupSize: 'large', rolling: 'tuned', speed: 'normal', obstacles: 'none', edge: 'wall' },
+  hard: { balls: 5, ballSize: 'medium', hole: 'shallow', cupSize: 'large', rolling: 'tuned', speed: 'normal', obstacles: 'posts', edge: 'wall' },
+  expert: { balls: 7, ballSize: 'medium', hole: 'shallow', cupSize: 'large', rolling: 'real', speed: 'normal', obstacles: 'posts', edge: 'wall' },
 };
 
 // Pocket: a seated ball sits 0.3R proud, so others bounce off it like a post.
@@ -60,7 +61,8 @@ export function settingsKey(s) {
   // the old plate size was; both were "normal" by default.
   const size = s.hole !== 'pocket' && s.cupSize && s.cupSize !== 'large' ? `-${s.cupSize}` : '';
   const ball = s.ballSize && s.ballSize !== 'medium' ? `-ball-${s.ballSize}` : '';
-  return `${s.balls}-${s.hole}-${s.rolling}-${s.speed ?? 'normal'}-${s.obstacles}${size}${ball}`;
+  const edge = s.edge === 'open' ? '-open' : '';
+  return `${s.balls}-${s.hole}-${s.rolling}-${s.speed ?? 'normal'}-${s.obstacles}${size}${ball}${edge}`;
 }
 
 export function presetOf(s) {
@@ -91,13 +93,16 @@ export function buildWorld(s, rand = Math.random) {
     }
     if (narrowest(layout, R, plateR) >= MIN_GAP * 2 * R) break;
   }
-  const W = createWorld({ R, c: ROLLING[s.rolling], plateR, holes: layout.holes, obstacles: layout.obstacles });
+  const open = s.edge === 'open';
+  const W = createWorld({ R, c: ROLLING[s.rolling], plateR, holes: layout.holes, obstacles: layout.obstacles, open });
   W.timeScale = SPEED[s.speed ?? 'normal'];
-  // Balls start spread along the rim
+  // Balls start spread along the rim. With an open edge they start a little
+  // further in, so a slightly-off level at Go doesn't tip one straight off;
+  // obstacles keep at least 2.8R clear of the edge, so this never overlaps one.
   const start = rand() * 2 * Math.PI;
   for (let i = 0; i < n; i++) {
     const ang = start + (i / n) * 2 * Math.PI;
-    const r = plateR - R - 0.001;
+    const r = open ? plateR - 1.5 * R : plateR - R - 0.001;
     addBall(W, r * Math.cos(ang), r * Math.sin(ang));
   }
   return W;

@@ -26,7 +26,7 @@ The little circle bottom right is a spirit level: its bubble drifts uphill.
 | Rolling | Tuned, Real steel | Real steel rolls about five times more freely, so it is much harder to stop |
 | Plate speed | Slow, Normal, Fast | Runs the physics at 0.7×, 1× or 1.3× real time. Slow plays like a tray twice the size, fast like one half the size. The timer always counts real seconds |
 | Obstacles | None, Posts, Guards, Both | Posts deflect balls; guards wall off the outer side of each hole |
-| Plate edge | Walled, Open | With an open edge there is no rim, so a ball can roll off the plate, and losing one ends the round |
+| Plate edge | Walled, Open | With an open edge there is no rim, so a ball can roll off the plate, and losing one ends the round. The balls start bunched in the middle, since spread round the rim they all move together and can never reach the holes without one going off |
 
 Presets: Easy (3 balls, pockets), Medium (5, deep cups), Hard (5, shallow cups, posts), Expert (7, shallow cups, real steel, posts).
 

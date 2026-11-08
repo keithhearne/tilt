@@ -232,13 +232,16 @@ test('a ball rolling slowly along near an open edge stays on', () => {
   assert.ok(!b.fallen && Math.abs(b.z - R) < 1e-4, 'ball on the plate stays on it');
 });
 
-test('open-edge worlds start every ball on the plate, clear of obstacles', () => {
-  for (const s of Object.values(PRESETS)) {
+test('open-edge worlds start the balls bunched in the middle, clear of holes and obstacles', () => {
+  for (const s of Object.values(PRESETS)) for (const balls of OPTIONS.balls.values) for (const cupSize of OPTIONS.cupSize.values) {
     for (const ballSize of OPTIONS.ballSize.values) for (const obstacles of OPTIONS.obstacles.values) {
-      const W = buildWorld({ ...s, ballSize, obstacles, edge: 'open' }, () => 0.3);
+      const W = buildWorld({ ...s, balls, cupSize, ballSize, obstacles, edge: 'open' }, () => 0.3);
       assert.ok(W.open);
       for (const b of W.balls) {
         assert.ok(Math.hypot(b.x, b.y) < W.plateR - W.R, 'ball starts fully on the plate');
+        if (balls > 1) assert.ok(Math.hypot(b.x, b.y) < 0.035, 'balls start bunched at the centre');
+        for (const h of W.holes) assert.ok(Math.hypot(b.x - h.x, b.y - h.y) > h.a + 0.005, 'ball starts well clear of every hole');
+        for (const c of W.balls) if (c !== b) assert.ok(Math.hypot(b.x - c.x, b.y - c.y) > 2 * W.R, 'balls start apart');
         for (const o of W.obstacles) {
           const ex = o.x2 - o.x1, ey = o.y2 - o.y1, L2 = ex * ex + ey * ey;
           const t = L2 > 0 ? Math.max(0, Math.min(1, ((b.x - o.x1) * ex + (b.y - o.y1) * ey) / L2)) : 0;

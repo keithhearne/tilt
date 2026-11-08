@@ -96,13 +96,16 @@ export function buildWorld(s, rand = Math.random) {
   const open = s.edge === 'open';
   const W = createWorld({ R, c: ROLLING[s.rolling], plateR, holes: layout.holes, obstacles: layout.obstacles, open });
   W.timeScale = SPEED[s.speed ?? 'normal'];
-  // Balls start spread along the rim. With an open edge they start a little
-  // further in, so a slightly-off level at Go doesn't tip one straight off;
-  // obstacles keep at least 2.8R clear of the edge, so this never overlaps one.
+  // Balls start spread along the rim. With an open edge every ball feels the
+  // same tilt, so they slide as one rigid group; spread round the rim, no slide
+  // brings one over a hole without another going off. So they start bunched
+  // in a ring at the centre, half a millimetre apart, at least 9 mm clear of
+  // every hole. A single ball would start in the central hole, so it starts
+  // 1.5R in from the edge instead.
   const start = rand() * 2 * Math.PI;
+  const r = !open ? plateR - R - 0.001 : n > 1 ? (R + 0.0005) / Math.sin(Math.PI / n) : plateR - 1.5 * R;
   for (let i = 0; i < n; i++) {
     const ang = start + (i / n) * 2 * Math.PI;
-    const r = open ? plateR - 1.5 * R : plateR - R - 0.001;
     addBall(W, r * Math.cos(ang), r * Math.sin(ang));
   }
   return W;

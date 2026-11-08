@@ -24,7 +24,7 @@ The little circle bottom right is a spirit level: its bubble drifts uphill.
 | Holes | Pocket, Deep cup, Shallow cup | Pocket: once in, a ball stays. Deep cup: a slow tilt to about 30° or a quick flick to about 7° knocks it out. Shallow cup: about 15° slow, 2° quick |
 | Cup size | Large, Medium, Small | Cup radius: 1.6, 1.2 or 0.8 times the ball's radius (32, 24 or 16 mm across for a 20 mm ball). Smaller cups are a narrower target and need a harder flick to empty (deep cup: about 7°, 9° and 14.5° over a tenth of a second) |
 | Rolling | Tuned, Real steel | Real steel rolls about five times more freely, so it is much harder to stop |
-| Speed | Slow, Normal, Fast | Runs the physics at 0.7×, 1× or 1.3× real time. Slow plays like a tray twice the size, fast like one half the size. The timer always counts real seconds |
+| Plate speed | Slow, Normal, Fast | Runs the physics at 0.7×, 1× or 1.3× real time. Slow plays like a tray twice the size, fast like one half the size. The timer always counts real seconds |
 | Obstacles | None, Posts, Guards, Both | Posts deflect balls; guards wall off the outer side of each hole |
 
 Presets: Easy (3 balls, pockets), Medium (5, deep cups), Hard (5, shallow cups, posts), Expert (7, shallow cups, real steel, posts).

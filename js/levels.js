@@ -15,7 +15,7 @@ export const OPTIONS = {
   },
   cupSize: { label: 'Cup size', values: ['large', 'medium', 'small'], names: { large: 'Large', medium: 'Medium', small: 'Small' }, cupsOnly: true },
   rolling: { label: 'Rolling', values: ['tuned', 'real'], names: { tuned: 'Tuned', real: 'Real steel' } },
-  speed: { label: 'Speed', values: ['slow', 'normal', 'fast'], names: { slow: 'Slow', normal: 'Normal', fast: 'Fast' } },
+  speed: { label: 'Plate speed', values: ['slow', 'normal', 'fast'], names: { slow: 'Slow', normal: 'Normal', fast: 'Fast' } },
   obstacles: {
     label: 'Obstacles',
     values: ['none', 'posts', 'guards', 'both'],

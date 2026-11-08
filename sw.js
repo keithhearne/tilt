@@ -1,6 +1,6 @@
 // Offline support: serve from cache straight away, refresh the cache in the background.
 // Bump VERSION when files are added or removed.
-const VERSION = 'tilt-v8';
+const VERSION = 'tilt-v9';
 const FILES = [
   './',
   'index.html',

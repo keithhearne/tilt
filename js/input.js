@@ -5,9 +5,12 @@
 // would for a real tray. Fallback: deviceorientation beta/gamma turned into a
 // gravity direction. Both are in the device's own frame, which does not turn
 // when the screen rotates.
+//
+// The plate is the screen and real gravity drives it: held at an angle, the
+// balls roll toward the lower edge straight away, as they would on a real tray.
 
 const G = 9.81;
-const LEVEL_SECONDS = 0.5; // the angle is averaged over this long before Go
+const SIGN_SECONDS = 0.5; // readings are averaged over this long before Go to check the sign
 
 export class Tilt {
   constructor() {
@@ -16,9 +19,8 @@ export class Tilt {
     this.orient = null; // the same, derived from orientation angles
     this.orientAt = 0;
     this.samples = [];
-    this.source = null;
     this.sign = 1;
-    this.basis = null; // calibrated plate axes in device frame
+    this.started = false;
     this.smooth = null;
     this.onMotion = (e) => {
       const a = e.accelerationIncludingGravity;
@@ -70,24 +72,22 @@ export class Tilt {
     return null;
   }
 
-  // Call every frame of the countdown; whatever angle the phone is held at
-  // just before Go becomes level.
-  sampleLevel() {
+  // Call every frame of the countdown, so the sign check at Go has readings to average.
+  sample() {
     const r = this.reading();
     if (!r) return;
     const now = performance.now();
     this.samples.push({ t: now, src: r.src, v: r.v.slice() });
-    this.samples = this.samples.filter((s) => now - s.t <= LEVEL_SECONDS * 1000 && s.src === r.src);
+    this.samples = this.samples.filter((s) => now - s.t <= SIGN_SECONDS * 1000 && s.src === r.src);
   }
 
-  // Fix "level" at Go. Returns false if there was no reading to use.
-  setLevel() {
+  // Call at Go. Returns false if there was no reading to use.
+  start() {
     const r = this.reading();
     const samples = this.samples.length ? this.samples : r ? [{ src: r.src, v: r.v }] : [];
     if (!samples.length) return false;
     const src = samples[samples.length - 1].src;
     const mean = [0, 1, 2].map((i) => samples.reduce((a, s) => a + s.v[i], 0) / samples.length);
-    this.source = src;
     // The spec reports +g along "up". Some iPhones have reported the opposite
     // sign, so check the motion reading against the orientation angles when we
     // have both, which works at any angle; otherwise assume the screen faces up.
@@ -97,27 +97,20 @@ export class Tilt {
     } else {
       this.sign = 1;
     }
-    const up = norm(mean.map((v) => v * this.sign));
-    // Plate axes follow the device's own x (or y when x points almost straight up)
-    const ref = Math.abs(up[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
-    let px = norm(sub(ref, scale(up, dot(ref, up))));
-    let py = cross(up, px);
-    if (ref[1] === 1) { const t = px; px = scale(py, -1); py = t; }
-    this.basis = { px, py, up };
+    this.started = true;
     this.smooth = null;
     this.samples = [];
     return true;
   }
 
-  // Effective gravity on the plate: { gx, gy } in-plane, gz pressing into it.
-  // tau is the heavy-plate lag in seconds.
+  // Effective gravity on the plate: { gx, gy } along the screen's x and y,
+  // gz pressing into it. tau is the heavy-plate lag in seconds.
   force(dt, tau) {
     const r = this.reading();
-    if (!r || !this.basis) return this.smooth ?? { gx: 0, gy: 0, gz: G };
+    if (!r || !this.started) return this.smooth ?? { gx: 0, gy: 0, gz: G };
     const a = (r.src === 'motion' ? r.v.map((v) => v * this.sign) : r.v);
-    const { px, py, up } = this.basis;
     // A ball feels the opposite of the plate's proper acceleration
-    const raw = { gx: -dot(a, px), gy: -dot(a, py), gz: Math.max(0, dot(a, up)) };
+    const raw = { gx: -a[0], gy: -a[1], gz: Math.max(0, a[2]) };
     if (!this.smooth) this.smooth = raw;
     const k = 1 - Math.exp(-dt / tau);
     for (const key of ['gx', 'gy', 'gz']) this.smooth[key] += (raw[key] - this.smooth[key]) * k;
@@ -133,7 +126,3 @@ export function screenAngle() {
 }
 
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => scale(a, 1 / Math.hypot(...a));

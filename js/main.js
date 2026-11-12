@@ -6,7 +6,7 @@ import { draw } from './render.js';
 const PLATE_LAG = 0.08; // seconds; stands in for the plate's weight
 const HOLD_TO_WIN = 1; // every hole must stay filled this long
 const MAX_STEPS_PER_FRAME = 60;
-const COUNTDOWN = 3; // seconds of 3-2-1; balls stay still and the angle at Go becomes level
+const COUNTDOWN = 3; // seconds of 3-2-1; balls stay still until Go
 
 const $ = (id) => document.getElementById(id);
 const menu = $('menu'), game = $('game'), canvas = $('board'), ctx = canvas.getContext('2d');
@@ -244,17 +244,17 @@ function frame(now) {
   if (game.hidden || !W) return;
 
   if (mode === 'countdown') {
-    tilt.sampleLevel();
+    tilt.sample();
     const left = COUNTDOWN - (now - countdownAt) / 1000;
     if (left > 0) {
       const num = Math.ceil(left);
       if (num !== shownNumber) {
         shownNumber = num;
-        setOverlay(`<span class="big">${num}</span><span class="hint">Hold the phone how you want to play. Its angle at Go becomes level.</span>`);
+        setOverlay(`<span class="big">${num}</span><span class="hint">Hold the phone flat. At Go, the balls roll whichever way it tilts.</span>`);
         if (navigator.vibrate) navigator.vibrate(10);
       }
     } else {
-      tilt.setLevel();
+      tilt.start();
       mode = 'play';
       started = now;
       pausedTotal = 0;

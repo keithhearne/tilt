@@ -10,7 +10,7 @@ Add it to your home screen to play offline in full screen.
 
 1. Pick a difficulty, or open **Settings** to mix your own.
 2. Tap **Play** and allow motion access if asked.
-3. Hold the phone at whatever angle is comfortable during the 3-2-1 countdown. Its angle at Go becomes level, and the timer starts.
+3. Hold the phone flat during the 3-2-1 countdown. At Go the timer starts and the balls follow real gravity, like a real tray: if the phone is at an angle, they roll toward the lower edge straight away.
 4. Tilt to roll the balls. The timer stops once every ball has stayed in a hole for one second.
 
 The little circle bottom right is a spirit level: its bubble drifts uphill.
@@ -35,7 +35,7 @@ Presets: Easy (3 balls, pockets), Medium (5, deep cups), Hard (5, shallow cups, 
 Plain HTML and JavaScript modules, no build step, no dependencies.
 
 - `js/physics.js`: rigid steel balls at a 1 kHz fixed step, with restitution, friction and rolling resistance.
-- `js/input.js`: reads `devicemotion` (falling back to `deviceorientation`), takes the angle at Go as level, and turns it into the gravity a ball on the plate feels.
+- `js/input.js`: reads `devicemotion` (falling back to `deviceorientation`), and turns the phone's real angle into the gravity a ball on the plate feels.
 - `js/levels.js`: difficulty settings and layouts.
 - `js/render.js`, `js/main.js`: drawing and the game flow.
 - `sw.js`, `manifest.webmanifest`: offline play and home-screen install.
